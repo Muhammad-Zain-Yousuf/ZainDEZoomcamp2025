@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: staging
+    database: zain-de-zoomcamp-2025
+    schema: dezoomcamp_week_4_dbt
+
+    tables:
+      - name: green_tripdata
+      - name: yellow_tripdata
