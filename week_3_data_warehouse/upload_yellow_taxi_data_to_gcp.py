@@ -3,18 +3,18 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from google.cloud import storage
 import time
-
+import gzip
 
 #Change this to your bucket name
-BUCKET_NAME = "week_3_hw3_bucket"  
+BUCKET_NAME = "week_4_hw4_bucket"  
 
 #If you authenticated through the GCP SDK you can comment out these two lines
 CREDENTIALS_FILE = "zain-de-zoomcamp-2025-36fa41168d02.json"  
 client = storage.Client.from_service_account_json(CREDENTIALS_FILE)
 
 
-BASE_URL = "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-"
-MONTHS = [f"{i:02d}" for i in range(1, 7)] 
+BASE_URL = "https://github.com/DataTalksClub/nyc-tlc-data/releases/download/fhv/fhv_tripdata_2019-"
+MONTHS = [f"{i:02d}" for i in range(1, 13)] 
 DOWNLOAD_DIR = "."
 
 CHUNK_SIZE = 8 * 1024 * 1024  
@@ -25,8 +25,8 @@ bucket = client.bucket(BUCKET_NAME)
 
 
 def download_file(month):
-    url = f"{BASE_URL}{month}.parquet"
-    file_path = os.path.join(DOWNLOAD_DIR, f"yellow_tripdata_2024-{month}.parquet")
+    url = f"{BASE_URL}{month}.csv.gz"
+    file_path = os.path.join(DOWNLOAD_DIR, f"fhv_tripdata_2019-{month}.csv.gz")
 
     try:
         print(f"Downloading {url}...")
@@ -41,6 +41,22 @@ def download_file(month):
 def verify_gcs_upload(blob_name):
     return storage.Blob(bucket=bucket, name=blob_name).exists(client)
 
+def convert_to_csv(file_path):
+    try:
+        print(f"Opening {file_path}")
+        with gzip.open(file_path, 'rt', newline='') as csv_file:
+            csv_data = csv_file.read()
+
+            file_path_csv = os.path.join(DOWNLOAD_DIR, file_path[:-3])
+            print(f"Converting to CSV file {file_path_csv}")
+
+            with open(file_path_csv, 'wt') as out_file:
+                out_file.write(csv_data)
+            return file_path_csv
+
+    except Exception as e:
+        print(f"Failed to convert {file_path}: {e}")
+        return None
 
 def upload_to_gcs(file_path, max_retries=3):
     blob_name = os.path.basename(file_path)
@@ -69,8 +85,11 @@ def upload_to_gcs(file_path, max_retries=3):
 if __name__ == "__main__":
     with ThreadPoolExecutor(max_workers=4) as executor:
         file_paths = list(executor.map(download_file, MONTHS))
+    
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        file_paths_csv = list(executor.map(convert_to_csv, filter(None, file_paths)))
 
     with ThreadPoolExecutor(max_workers=4) as executor:
-        executor.map(upload_to_gcs, filter(None, file_paths))  # Remove None values
+        executor.map(upload_to_gcs, filter(None, file_paths_csv))  # Remove None values
 
     print("All files processed and verified.")
