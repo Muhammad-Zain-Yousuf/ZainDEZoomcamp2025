@@ -4,16 +4,18 @@ from concurrent.futures import ThreadPoolExecutor
 from google.cloud import storage
 import time
 import gzip
+import itertools
 
 #Change this to your bucket name
-BUCKET_NAME = "week_4_hw4_bucket"  
+BUCKET_NAME = "week_4_dbt_us"  
 
 #If you authenticated through the GCP SDK you can comment out these two lines
 CREDENTIALS_FILE = "zain-de-zoomcamp-2025-36fa41168d02.json"  
 client = storage.Client.from_service_account_json(CREDENTIALS_FILE)
 
 
-BASE_URL = "https://github.com/DataTalksClub/nyc-tlc-data/releases/download/fhv/fhv_tripdata_2019-"
+BASE_URL = "https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/yellow_tripdata_"
+YEARS = ["2019", "2020"]
 MONTHS = [f"{i:02d}" for i in range(1, 13)] 
 DOWNLOAD_DIR = "."
 
@@ -24,9 +26,9 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 bucket = client.bucket(BUCKET_NAME)
 
 
-def download_file(month):
-    url = f"{BASE_URL}{month}.csv.gz"
-    file_path = os.path.join(DOWNLOAD_DIR, f"fhv_tripdata_2019-{month}.csv.gz")
+def download_file(month, year):
+    url = f"{BASE_URL}{year}-{month}.csv.gz"
+    file_path = os.path.join(DOWNLOAD_DIR, f"yellow_tripdata_{year}-{month}.csv.gz")
 
     try:
         print(f"Downloading {url}...")
@@ -84,7 +86,9 @@ def upload_to_gcs(file_path, max_retries=3):
 
 if __name__ == "__main__":
     with ThreadPoolExecutor(max_workers=4) as executor:
-        file_paths = list(executor.map(download_file, MONTHS))
+
+        month_year_pairs = itertools.product(MONTHS, [YEARS[1]])
+        file_paths = list(executor.map(download_file, *zip(*month_year_pairs)))
     
     with ThreadPoolExecutor(max_workers=4) as executor:
         file_paths_csv = list(executor.map(convert_to_csv, filter(None, file_paths)))
