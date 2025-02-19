@@ -7,6 +7,7 @@ with trips_data as (
 
     service_type,
     trip_year,
+    trip_quarter,
     year_quarter, 
 
     -- Revenue calculation 
@@ -14,4 +15,4 @@ with trips_data as (
 
 
     from trips_data
-    group by 1,2,3
+    group by 1,2,3,4
